@@ -148,6 +148,7 @@ def dataAnalysis():
 
     fig, ax = plt.subplots()
     ax.plot(dateList,posCasesList)
+    plt.xticks( rotation = 45)
     ax.set_xlabel('Date')
     ax.set_ylabel('Positive Cases')
     ax.set_title("Presence of Covid in Michigan Over One Year")
@@ -179,47 +180,47 @@ def dataAnalysis():
     plt.subplot(1,2,1)
     plt.plot(dateList, monthlyAverageCovidCases, 'y-', label = "Average Covid Cases")
     plt.title("Average Covid Cases")
+    plt.xticks( rotation = 45)
     plt.grid()
 
     plt.subplot(1,2,2)
     plt.plot(dateList, monthlyAverageDailyDeaths, 'r-', label = "Average Deaths")
     plt.title("Average Deaths")
+    plt.xticks( rotation = 45)
     plt.grid()
     fig.savefig("treatmentimprovgraph")
     plt.show()
 
     #THE FOLLOWING WILL BE A PIE CHART REPRESENTING MAJOR COUNTIES
-    cur.execute('SELECT * FROM michigan_county_data WHERE population > ?', (160000,))
+    cur.execute('SELECT county FROM county_id_table JOIN michigan_county_data WHERE michigan_county_data.population > ? AND michigan_county_data.county_id = county_id_table.county_id', (160000,))
 
+    countyNames= cur.fetchall()
+    print(countyNames)  
+
+    cur.execute('SELECT * FROM michigan_county_data WHERE michigan_county_data.population > ?', (160000,))
     countyData = cur.fetchall()
 
     casesList = []
-    countyNamesList = []
 
     for county in countyData:
-        countyNamesList.append(county[1])
-        casesList.append(county[4])
+        casesList.append(county[3])
 
-    plt.pie(casesList, labels = countyNamesList)
+    plt.pie(casesList, labels = countyNames)
     plt.axis('equal')
     plt.show()
 
     percentInfectedRate = []
     for county in countyData:
-        percentInfectedRate.append(county[4]/2)
+        percentInfectedRate.append(county[3]/county[1])
 
 
-    fig, ax = plt.subplots()
-    N = len(countyData)
-    width = .35
+    y_pos = np.arange(len(countyNames))
 
-    p1 = ax.bar(percentInfectedRate, width, color = 'red')
-
-    ax.set_xlabel(countyNamesList)
-    ax.autoscale_view()
-
-    ax.set(xlabel = 'County', ylabel = 'Percent Infected' , title = 'Percent Infected in Each County')
-    ax.grid()
+    plt.bar(y_pos, percentInfectedRate, align = 'center', alpha = .5)
+    plt.xticks(y_pos, countyNames, rotation = 45)
+    
+    plt.ylabel('Percent Infected')
+    plt.title('Percent of Population Infected in Counties in Michigan with Population > 160,000')
     plt.show()
 
 # select next data and do analysis 2 on those numbers, return analyzed data
