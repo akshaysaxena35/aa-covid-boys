@@ -51,7 +51,8 @@ def getCovidTrackingData():
 
 # add information to databases (if we don't know a way to do 2nd table, add ids for all districts)
 def populateDatabase(historic_data, current_data, cur, conn):
-    cur.execute('CREATE TABLE IF NOT EXISTS historical_covid (date INT, state TEXT, positive INT, currently_hospitalized INT, currently_in_icu INT, currently_on_ventilator INT, recovered INT, positive_tests INT, positive_cases INT, confirmed_deaths INT, antibody_tests INT, positive_test_increases INT, death_increases INT)')
+    # cur.execute('DROP TABLE IF EXISTS historical_covid')
+    cur.execute('CREATE TABLE IF NOT EXISTS historical_covid (date INT PRIMARY KEY, state TEXT, positive INT, currently_hospitalized INT, currently_in_icu INT, currently_on_ventilator INT, recovered INT, positive_tests INT, positive_cases INT, confirmed_deaths INT, antibody_tests INT, positive_test_increases INT, death_increases INT)')
     conn.commit()
 
     for data in historic_data:
@@ -68,20 +69,37 @@ def populateDatabase(historic_data, current_data, cur, conn):
         antibody_tests = data['totalTestsAntibody']
         pos_increase = data['positiveIncrease']
         death_increase = data['deathIncrease']
-        cur.execute('INSERT INTO historical_covid (date, state, positive, currently_hospitalized, currently_in_icu, currently_on_ventilator, recovered, positive_tests, positive_cases, confirmed_deaths, antibody_tests, positive_test_increases, death_increases) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (date, state, positivecases, hospitalized, icu, ventilator, recovered, pos_tests, pos_cases, deaths, antibody_tests, pos_increase, death_increase))
-        conn.commit()
+        date_list = []
+        updated_date_list = []
+        cur.execute('SELECT date from historical_covid')
+        for i in cur:
+            date_list.append(i)
+        for datekey in date_list:
+            updated_date_list.append(datekey[0])
+        if not date in updated_date_list:
+            cur.execute('INSERT INTO historical_covid (date, state, positive, currently_hospitalized, currently_in_icu, currently_on_ventilator, recovered, positive_tests, positive_cases, confirmed_deaths, antibody_tests, positive_test_increases, death_increases) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (date, state, positivecases, hospitalized, icu, ventilator, recovered, pos_tests, pos_cases, deaths, antibody_tests, pos_increase, death_increase))
+            conn.commit()
 
+    cur.execute('DROP TABLE IF EXISTS michigan_county_data')
     cur.execute('CREATE TABLE IF NOT EXISTS michigan_county_data (county_id INT, population INT, infection_rate INT, cases INT, deaths INT, positive_tests INT, negative_tests INT, new_cases INT, new_deaths INT, vaccinations_initiated INT, vaccinations_completed INT, vaccines_administered INT)')
     conn.commit()
 
     county_list = []
     for data in current_data:
         county_list.append(data['county'])
-    cur.execute('CREATE TABLE IF NOT EXISTS county_id_table (county_id INT, county TEXT)')
+    # cur.execute('DROP TABLE IF EXISTS county_id_table')
+    cur.execute('CREATE TABLE IF NOT EXISTS county_id_table (county_id INT PRIMARY KEY, county TEXT)')
     countyid = 1
+    check_list = []
+    county_check = ""
     for county in county_list:
-        cur.execute('INSERT INTO county_id_table (county_id, county) VALUES (?,?)', (countyid, county))
-        countyid += 1
+        cur.execute('SELECT county FROM county_id_table') # WHERE county = ?', (county, ))
+        for i in cur:
+            check_list.append(i)
+        if not county in check_list:
+            cur.execute('REPLACE INTO county_id_table (county_id, county) VALUES (?,?)', (countyid, county))
+            countyid += 1
+
 
     for data in current_data:
         county = data['county'] #have to remove this from table itself
