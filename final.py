@@ -33,6 +33,8 @@ def getCovidActNowData():
         r = requests.get(request_url)
     except Exception:
         print("exception")
+
+
     data = r.text
     actnow_dict = json.loads(data)
     return actnow_dict
@@ -54,8 +56,12 @@ def populateDatabase(historic_data, current_data, cur, conn):
     # cur.execute('DROP TABLE IF EXISTS historical_covid')
     cur.execute('CREATE TABLE IF NOT EXISTS historical_covid (date INT PRIMARY KEY, state TEXT, positive INT, currently_hospitalized INT, currently_in_icu INT, currently_on_ventilator INT, recovered INT, positive_tests INT, positive_cases INT, confirmed_deaths INT, antibody_tests INT, positive_test_increases INT, death_increases INT)')
     conn.commit()
-
+    count = 0
+    more25 = ""
     for data in historic_data:
+        count += 1
+        
+
         date = data['date']
         state = data['state']
         positivecases = data['positive']
@@ -80,18 +86,47 @@ def populateDatabase(historic_data, current_data, cur, conn):
             cur.execute('INSERT INTO historical_covid (date, state, positive, currently_hospitalized, currently_in_icu, currently_on_ventilator, recovered, positive_tests, positive_cases, confirmed_deaths, antibody_tests, positive_test_increases, death_increases) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (date, state, positivecases, hospitalized, icu, ventilator, recovered, pos_tests, pos_cases, deaths, antibody_tests, pos_increase, death_increase))
             conn.commit()
 
+        if (count % 25 == 0 and count <= 100):
+            more25 = input(str(count) + " Data Stored in historical_covid. Do you want to continue? (YES, NO) : ")
+            if(more25 == "YES"):
+                continue
+            elif (more25 == "NO"):
+                break
+            else:
+                print("Not a valid input. No longer adding data")
+                break
+
+
+
     cur.execute('DROP TABLE IF EXISTS michigan_county_data')
     cur.execute('CREATE TABLE IF NOT EXISTS michigan_county_data (county_id INT, population INT, infection_rate INT, cases INT, deaths INT, positive_tests INT, negative_tests INT, new_cases INT, new_deaths INT, vaccinations_initiated INT, vaccinations_completed INT, vaccines_administered INT)')
     conn.commit()
-
+    
+    count = 0
     county_list = []
     for data in current_data:
+        count += 1
         county_list.append(data['county'])
+        if (count % 25 == 0 and count <= 100):
+            more25 = input(str(count) + " Data Stored in michigan_county_data. Do you want to continue? (YES, NO) : ")
+            if(more25 == "YES"):
+                continue
+            elif (more25 == "NO"):
+                break
+            else:
+                print("Not a valid input. No longer adding data")
+                break
+
     # cur.execute('DROP TABLE IF EXISTS county_id_table')
+
+
+
     cur.execute('CREATE TABLE IF NOT EXISTS county_id_table (county_id INT PRIMARY KEY, county TEXT)')
     countyid = 1
     check_list = []
     county_check = ""
+
+
     for county in county_list:
         cur.execute('SELECT county FROM county_id_table') # WHERE county = ?', (county, ))
         for i in cur:
@@ -101,7 +136,11 @@ def populateDatabase(historic_data, current_data, cur, conn):
             countyid += 1
 
 
+    
+
+    newcount = 0
     for data in current_data:
+        newcount += 1
         county = data['county'] #have to remove this from table itself
         cur.execute('SELECT county_id from county_id_table WHERE county = ?', (county, ))
         county_addlist = []
@@ -121,6 +160,9 @@ def populateDatabase(historic_data, current_data, cur, conn):
         vacc_admin = data['actuals']['vaccinesAdministered']
         cur.execute('INSERT INTO michigan_county_data (county_id, population, infection_rate, cases, deaths, positive_tests, negative_tests, new_cases, new_deaths, vaccinations_initiated, vaccinations_completed, vaccines_administered) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (countyid, population, infectionrate, cases, deaths, pos_tests, neg_tests, newcases, newdeaths, vacc_init, vacc_completed, vacc_admin))
         conn.commit()
+
+        if (newcount == count):
+            break
 
 
 # select pertinenent data from database and do analysis 1 on the numbers, return analyzed data
@@ -195,7 +237,6 @@ def dataAnalysis():
     cur.execute('SELECT county FROM county_id_table JOIN michigan_county_data WHERE michigan_county_data.population > ? AND michigan_county_data.county_id = county_id_table.county_id', (160000,))
 
     countyNames= cur.fetchall()
-    print(countyNames)  
 
     cur.execute('SELECT * FROM michigan_county_data WHERE michigan_county_data.population > ?', (160000,))
     countyData = cur.fetchall()
@@ -207,6 +248,7 @@ def dataAnalysis():
 
     plt.pie(casesList, labels = countyNames)
     plt.axis('equal')
+    plt.title("Case Distribution by Major Counties in Michigan")
     plt.show()
 
     percentInfectedRate = []
@@ -234,7 +276,11 @@ def main():
     currentdata = getCovidActNowData()
     histdata = getCovidTrackingData()
     populateDatabase(histdata, currentdata, cur, conn)
-    dataAnalysis()
+    if (input("Do you want to do data analysis? The data analysis will show proper results only if all data is added(YES, NO)") == "YES"):
+        dataAnalysis()
+    else:
+        print("Did not receieve YES, shutting down")
+    
 
 if __name__ == "__main__":
     main()
